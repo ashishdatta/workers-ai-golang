@@ -7,6 +7,7 @@ const (
 	ModelLlama370B          = "@cf/meta/llama-3-70b-instruct"
 	ModelMistral7B          = "@cf/mistral/mistral-7b-instruct-v0.1"
 	ModelCodeLlama7B        = "@cf/meta/code-llama-7b-instruct"
+	ModelQwen330ba3b        = "@cf/qwen/qwen3-30b-a3b-fp8"
 	
 	// Image generation models
 	ModelStableDiffusion    = "@cf/stabilityai/stable-diffusion-xl-base-1.0"
