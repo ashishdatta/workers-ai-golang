@@ -10,72 +10,59 @@ import (
 
 func main() {
 	fmt.Println("Cloudflare Workers AI Go Client Example")
-	
+
 	accountID := os.Getenv("CLOUDFLARE_ACCOUNT_ID")
-	apiToken := os.Getenv("CLOUDFLARE_AUTH_TOKEN")
-	
+	apiToken := os.Getenv("CLOUDFLARE_API_TOKEN")
+
 	if accountID == "" || apiToken == "" {
-		log.Fatal("Please set CLOUDFLARE_ACCOUNT_ID and CLOUDFLARE_AUTH_TOKEN environment variables")
+		log.Fatal("Please set CLOUDFLARE_ACCOUNT_ID and CLOUDFLARE_API_TOKEN environment variables")
 	}
-	
+
 	client := workersai.NewClient(accountID, apiToken)
-	
+
 	// Enable debug logging - can also be enabled with WORKERS_AI_DEBUG=true environment variable
 	client.SetDebug(false)
-	
-	// Get model information
-	/* modelInfo, err := client.GetModelInfo(workersai.ModelLlama4Scout17B)
-	if err != nil {
-		log.Printf("Error getting model info: %v", err)
-	} else {
-		fmt.Printf("Model: %s\n", modelInfo.Name)
-		fmt.Printf("Description: %s\n", modelInfo.Description)
-		fmt.Printf("Task: %s\n", modelInfo.Task.Name)
-		fmt.Printf("Max Tokens: %d\n", modelInfo.Properties.MaxTotalTokens)
-	} */
-	
-	// Chat with the model
-	messages := []workersai.Message{
-		{Role: "system", Content: "You are a friendly assistant"},
-		{Role: "user", Content: "Why is pizza so good?"},
+
+	fmt.Println("\n--- Simple Chat Example ---")
+	chatMessages := []workersai.Message{
+		workersai.ChatMessage{Role: "system", Content: "You are a friendly assistant"},
+		workersai.ChatMessage{Role: "user", Content: "Why is pizza so good?"},
 	}
-	
-	//response, err := client.Chat(workersai.ModelLlama4Scout17B, messages)
-	response, err := client.Chat(workersai.ModelQwen330ba3b, messages)
+
+	// Using a known model from the library constants
+	chatResponse, err := client.Chat(workersai.ModelQwen330ba3b, chatMessages)
 	if err != nil {
 		log.Printf("Error sending chat request: %v", err)
 	} else {
-		fmt.Printf("AI Response: %s\n", response.GetContent())
-		if reasoning := response.GetReasoningContent(); reasoning != "" {
+		fmt.Printf("AI Response: %s\n", chatResponse.GetContent())
+		if reasoning := chatResponse.GetReasoningContent(); reasoning != "" {
 			fmt.Printf("Reasoning: %s\n", reasoning)
 		}
-		fmt.Printf("Usage: %d prompt + %d completion = %d total tokens\n", 
-			response.Result.Usage.PromptTokens, response.Result.Usage.CompletionTokens, response.Result.Usage.TotalTokens)
+
+		// Correctly print usage based on the response format
+		if chatResponse.IsLegacyResult {
+			fmt.Printf("Usage: %d prompt + %d completion = %d total tokens\n",
+				chatResponse.LegacyResponse.Usage.PromptTokens,
+				chatResponse.LegacyResponse.Usage.CompletionTokens,
+				chatResponse.LegacyResponse.Usage.TotalTokens)
+		} else {
+			fmt.Printf("Usage: %d prompt + %d completion = %d total tokens\n",
+				chatResponse.ChatCompletionResponse.Usage.PromptTokens,
+				chatResponse.ChatCompletionResponse.Usage.CompletionTokens,
+				chatResponse.ChatCompletionResponse.Usage.TotalTokens)
+		}
 	}
-	
-	// Example of tool calling
+
 	fmt.Println("\n--- Tool Calling Example ---")
-	
-	// Define a simple function tool
-	tools := []workersai.FunctionTool{
+
+	// Define a tool using the new, type-safe Tool struct
+	tools := []workersai.Tool{
 		{
 			Type: "function",
-			Function: struct {
-				Name        string `json:"name"`
-				Description string `json:"description"`
-				Parameters  struct {
-					Type       string                      `json:"type"`
-					Required   []string                    `json:"required"`
-					Properties map[string]*workersai.Parameter `json:"properties"`
-				} `json:"parameters"`
-			}{
+			Function: workersai.FunctionDefinition{
 				Name:        "get_weather",
 				Description: "Get the current weather in a given location",
-				Parameters: struct {
-					Type       string                      `json:"type"`
-					Required   []string                    `json:"required"`
-					Properties map[string]*workersai.Parameter `json:"properties"`
-				}{
+				Parameters: workersai.FunctionParameters{
 					Type:     "object",
 					Required: []string{"location"},
 					Properties: map[string]*workersai.Parameter{
@@ -93,14 +80,13 @@ func main() {
 			},
 		},
 	}
-	
+
 	toolMessages := []workersai.Message{
-		{Role: "system", Content: "You are a helpful assistant with access to weather information"},
-		{Role: "user", Content: "What's the weather like in San Francisco?"},
+		workersai.ChatMessage{Role: "system", Content: "You are a helpful assistant with access to weather information"},
+		workersai.ChatMessage{Role: "user", Content: "What's the weather like in San Francisco?"},
 	}
-	
-  //toolResponse, err := client.ChatWithTools(workersai.ModelLlama4Scout17B, toolMessages, tools)
-  toolResponse, err := client.ChatWithTools(workersai.ModelQwen330ba3b, toolMessages, tools)
+
+	toolResponse, err := client.ChatWithTools(workersai.ModelQwen330ba3b, toolMessages, tools)
 	if err != nil {
 		log.Printf("Error sending tool calling request: %v", err)
 	} else {
@@ -114,26 +100,38 @@ func main() {
 		} else {
 			fmt.Printf("AI Response: %s\n", toolResponse.GetContent())
 		}
-		
+
 		if reasoning := toolResponse.GetReasoningContent(); reasoning != "" {
 			fmt.Printf("Reasoning: %s\n", reasoning)
 		}
-		
-		fmt.Printf("Usage: %d prompt + %d completion = %d total tokens\n", 
-			toolResponse.Result.Usage.PromptTokens, toolResponse.Result.Usage.CompletionTokens, toolResponse.Result.Usage.TotalTokens)
+
+		// Correctly print usage for the tool response
+		if toolResponse.IsLegacyResult {
+			fmt.Printf("Usage: %d prompt + %d completion = %d total tokens\n",
+				toolResponse.LegacyResponse.Usage.PromptTokens,
+				toolResponse.LegacyResponse.Usage.CompletionTokens,
+				toolResponse.LegacyResponse.Usage.TotalTokens)
+		} else {
+			fmt.Printf("Usage: %d prompt + %d completion = %d total tokens\n",
+				toolResponse.ChatCompletionResponse.Usage.PromptTokens,
+				toolResponse.ChatCompletionResponse.Usage.CompletionTokens,
+				toolResponse.ChatCompletionResponse.Usage.TotalTokens)
+		}
 	}
-	
-	// List available models
+
+	// --- List Models Example ---
+	// fmt.Println("\n--- List Available Models ---")
 	// models, err := client.ListModels()
 	// if err != nil {
 	// 	log.Printf("Error listing models: %v", err)
 	// } else {
-	// 	fmt.Printf("\nAvailable models (%d):\n", len(models))
+	// 	fmt.Printf("Found %d models:\n", len(models))
 	// 	for i, model := range models {
-	// 		fmt.Printf("%d. %s - %s\n", i+1, model.Name, model.Description)
-	// 		if i >= 4 { // Show only first 5 models
+	// 		if i >= 5 { // Show only the first 5 models
 	// 			fmt.Printf("... and %d more\n", len(models)-5)
 	// 			break
 	// 		}
+	// 		fmt.Printf("- %s: %s\n", model.Name, model.Description)
 	// 	}
+	// }
 }
