@@ -1,6 +1,7 @@
 package workersai
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 )
@@ -350,6 +351,46 @@ type LegacyResponse struct {
 	Response  string           `json:"response"`
 	ToolCalls []LegacyToolCall `json:"tool_calls"`
 	Usage     Usage            `json:"usage"`
+}
+
+// UnmarshalJSON implements a custom unmarshaler for LegacyResponse.
+// It handles cases where the 'response' field can be either a simple string
+// or a complex JSON object. If it's an object, it's marshaled into a string.
+func (lr *LegacyResponse) UnmarshalJSON(data []byte) error {
+	// temporary struct where 'Response' is a json.RawMessage, to inspect its format before fully unmarshaling.
+	var temp struct {
+		Response  json.RawMessage  `json:"response"`
+		ToolCalls []LegacyToolCall `json:"tool_calls"`
+		Usage     Usage            `json:"usage"`
+	}
+
+	if err := json.Unmarshal(data, &temp); err != nil {
+		return fmt.Errorf("failed to unmarshal legacy response shell: %w", err)
+	}
+
+	// Copy the fields that have a consistent format.
+	lr.ToolCalls = temp.ToolCalls
+	lr.Usage = temp.Usage
+
+	// Now, handle the flexible 'Response' field.
+	if len(temp.Response) > 0 {
+		// Trim whitespace to be safe when checking the first character.
+		raw := bytes.TrimSpace(temp.Response)
+
+		// Check if the raw message is a JSON string (starts with a quote).
+		if raw[0] == '"' {
+			// It's a string, so unmarshal it as a string.
+			if err := json.Unmarshal(raw, &lr.Response); err != nil {
+				return fmt.Errorf("failed to unmarshal legacy response string: %w", err)
+			}
+		} else {
+			// It's an object or something else; treat it as a raw string.
+			// This flattens the object into its string representation.
+			lr.Response = string(raw)
+		}
+	}
+
+	return nil
 }
 
 // LegacyToolCall defines the unique structure of a tool call in the legacy API format.
