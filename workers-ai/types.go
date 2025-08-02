@@ -302,8 +302,8 @@ type Choice struct {
 
 // ResponseMessage is the message object returned by the model inside a Choice.
 type ResponseMessage struct {
-	Role             string     `json:"role"`    // Always "assistant".
-	Content          *string    `json:"content"` // Can be null if calling tools.
+	Role             string     `json:"role"` // Always "assistant".
+	Content          *string    `json:"content"`
 	ToolCalls        []ToolCall `json:"tool_calls,omitempty"`
 	ReasoningContent string     `json:"reasoning_content,omitempty"`
 }
