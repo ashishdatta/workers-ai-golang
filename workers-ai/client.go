@@ -43,11 +43,11 @@ func (c *Client) SetDebug(debug bool) {
 	c.Debug = debug
 }
 
-func (c *Client) Chat(modelID string, messages []Message) (*ChatResponse, error) {
-	return c.ChatWithTools(modelID, messages, nil)
+func (c *Client) Chat(modelID string, messages []Message, modelParams *ModelParameters) (*ChatResponse, error) {
+	return c.ChatWithTools(modelID, messages, nil, modelParams)
 }
 
-func (c *Client) ChatWithTools(modelID string, messages []Message, tools []Tool) (*ChatResponse, error) {
+func (c *Client) ChatWithTools(modelID string, messages []Message, tools []Tool, modelParams *ModelParameters) (*ChatResponse, error) {
 	var url string
 	if strings.HasPrefix(modelID, "@cf/") {
 		url = fmt.Sprintf("%s/accounts/%s/ai/run/%s", c.BaseURL, c.AccountID, modelID)
@@ -60,6 +60,10 @@ func (c *Client) ChatWithTools(modelID string, messages []Message, tools []Tool)
 		Messages: messages,
 		Tools:    tools,
 		Stream:   false,
+	}
+
+	if modelParams != nil {
+		request.ModelParameters = *modelParams
 	}
 
 	jsonData, err := json.Marshal(request)

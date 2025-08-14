@@ -29,8 +29,11 @@ func main() {
 		workersai.ChatMessage{Role: "user", Content: "Why is pizza so good?"},
 	}
 
+	p := workersai.ModelParameters{
+		Temperature: 0.1,
+	}
 	// Using a known model from the library constants
-	chatResponse, err := client.Chat(workersai.ModelQwen330ba3b, chatMessages)
+	chatResponse, err := client.Chat(workersai.ModelQwen330ba3b, chatMessages, &p)
 	if err != nil {
 		log.Printf("Error sending chat request: %v", err)
 	} else {
@@ -86,7 +89,7 @@ func main() {
 		workersai.ChatMessage{Role: "user", Content: "What's the weather like in San Francisco?"},
 	}
 
-	toolResponse, err := client.ChatWithTools(workersai.ModelQwen330ba3b, toolMessages, tools)
+	toolResponse, err := client.ChatWithTools(workersai.ModelQwen330ba3b, toolMessages, tools, nil)
 	if err != nil {
 		log.Printf("Error sending tool calling request: %v", err)
 	} else {

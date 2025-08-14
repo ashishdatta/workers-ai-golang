@@ -152,10 +152,10 @@ func (cr *ChatResponse) UnmarshalJSON(data []byte) error {
 
 	// Define a probe struct to detect the format of the 'result' field.
 	type ResultProbe struct {
-		Choices   *json.RawMessage `json:"choices"` // Check for presence of 'choices'
+		Choices   *json.RawMessage `json:"choices,omitempty"` // Check for presence of 'choices'
 		ToolCalls *[]struct {
 			ID string `json:"id"` // Check for presence of 'id' in tool_calls
-		} `json:"tool_calls"`
+		} `json:"tool_calls,omitempty"`
 	}
 
 	var probe ResultProbe
@@ -198,11 +198,38 @@ func (cr *ChatResponse) UnmarshalJSON(data []byte) error {
 }
 
 // ChatCompletionRequest is the complete payload sent to the Chat Completions API.
+//
+// Is the same as the generated type in the cloudflare Go library
+// https://github.com/cloudflare/cloudflare-go/blob/d3656062198c1276336e9a0f2d191c8bb5e0ef89/ai/ai.go#L561
 type ChatCompletionRequest struct {
 	Model    string    `json:"model"`
 	Messages []Message `json:"messages"` // Can contain ChatMessage or ToolMessage.
 	Tools    []Tool    `json:"tools,omitempty"`
 	Stream   bool      `json:"stream,omitempty"`
+	ModelParameters
+}
+
+// Parameters to be set in the ChatCompletionRequest
+type ModelParameters struct {
+	// The maximum number of tokens to generate in the response.
+	MaxTokens int64 `json:"max_tokens,omitempty"`
+
+	// The top_k parameter filters these possibilities, keeping only the top k most likely tokens.
+	// For example, if top_k is set to 10, the model will only consider the 10 most probable tokens when deciding what to output nex
+	//
+	// Should not be used in conjuction with TopP
+	TopK int `json:"top_k,omitempty"`
+
+	// Controls the randomness of the output; higher values produce more random results.
+	Temperature float64 `json:"temperature,omitempty"`
+
+	// A lower top-p value (e.g., 0.2) will result in a smaller, more focused set of tokens,
+	// leading to more predictable and deterministic output.
+	// A higher top-p value (e.g., 0.9) will include a broader range of tokens,
+	// potentially leading to more creative and diverse output, but potentially at the cost of coherence.
+	//
+	// Should not be used in conjuction with TopK
+	TopP float64 `json:"top_p,omitempty"`
 }
 
 // UnmarshalJSON provides custom unmarshaling logic for the ChatCompletionRequest.
