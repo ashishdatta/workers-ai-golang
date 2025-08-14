@@ -113,9 +113,10 @@ func TestChatResponse_UnmarshalJSON(t *testing.T) {
 			expectError: true,
 		},
 		{
-			name:        "should handle response in JSON object",
-			inputJSON:   `{"result":{"response":{"server_id":"foobar","hello":"world"},"tool_calls":[],"usage":{"prompt_tokens":15061,"completion_tokens":192,"total_tokens":15253}},"success":true,"errors":[],"messages":[]}`,
-			expectError: false,
+			name:         "should handle response in JSON object",
+			inputJSON:    `{"result":{"response":{"server_id":"foobar","hello":"world"},"tool_calls":[],"usage":{"prompt_tokens":15061,"completion_tokens":192,"total_tokens":15253}},"success":true,"errors":[],"messages":[]}`,
+			expectError:  false,
+			expectLegacy: true,
 		},
 	}
 

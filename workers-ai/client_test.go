@@ -56,7 +56,7 @@ func TestClient_Chat(t *testing.T) {
 	}
 
 	// Call the function under test
-	response, err := client.Chat("@cf/meta/llama-2-7b-chat-int8", messages)
+	response, err := client.Chat("@cf/meta/llama-2-7b-chat-int8", messages, nil)
 
 	// Assert the results
 	require.NoError(t, err)
@@ -70,6 +70,133 @@ func TestClient_Chat(t *testing.T) {
 
 	// You can also check the specific legacy field if needed
 	require.Equal(t, expectedContent, response.LegacyResponse.Response)
+}
+
+func TestClient_Chat_WithModelParameters(t *testing.T) {
+	mockResponseJSON := `{
+		"success": true,
+		"errors": [],
+		"messages": [],
+		"result": {
+			"response": "Hello! How can I help you today?",
+			"usage": {
+				"prompt_tokens": 15,
+				"completion_tokens": 9,
+				"total_tokens": 24
+			}
+		}
+	}`
+
+	wantMaxTokens := int64(10)
+	wantTopK := 2
+	wantTopP := 0.2
+	wantTemp := 0.23
+
+	// Set up the mock server
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		require.Equal(t, "POST", r.Method, "Expected POST request")
+		require.Equal(t, "Bearer test-token", r.Header.Get("Authorization"), "Expected correct Authorization header")
+		require.Equal(t, "application/json", r.Header.Get("Content-Type"), "Expected correct Content-Type header")
+
+		b, err := io.ReadAll(r.Body)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		req := &ChatCompletionRequest{}
+		if err := json.Unmarshal(b, req); err != nil {
+			t.Fatal(err)
+		}
+
+		assert.Equal(t, req.MaxTokens, wantMaxTokens)
+		assert.Equal(t, req.TopK, wantTopK)
+		assert.Equal(t, req.TopP, wantTopP)
+		assert.Equal(t, req.Temperature, wantTemp)
+
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_, err = w.Write([]byte(mockResponseJSON))
+		require.NoError(t, err)
+	}))
+	defer server.Close()
+
+	// Initialize the client to use the mock server
+	client := NewClient("test-account", "test-token")
+	client.BaseURL = server.URL
+
+	// Correctly initialize the messages slice with the concrete type 'ChatMessage'
+	messages := []Message{
+		ChatMessage{Role: "system", Content: "You are a helpful assistant"},
+		ChatMessage{Role: "user", Content: "Hello"},
+	}
+
+	mp := &ModelParameters{
+		MaxTokens:   int64(wantMaxTokens),
+		TopK:        wantTopK,
+		TopP:        wantTopP,
+		Temperature: wantTemp,
+	}
+
+	// Call the function under test
+	_, gotErr := client.Chat("@cf/meta/llama-2-7b-chat-int8", messages, mp)
+	assert.Nil(t, gotErr)
+}
+
+func TestClient_Chat_WithoutModelParameters(t *testing.T) {
+	mockResponseJSON := `{
+		"success": true,
+		"errors": [],
+		"messages": [],
+		"result": {
+			"response": "Hello! How can I help you today?",
+			"usage": {
+				"prompt_tokens": 15,
+				"completion_tokens": 9,
+				"total_tokens": 24
+			}
+		}
+	}`
+
+	// Set up the mock server
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		require.Equal(t, "POST", r.Method, "Expected POST request")
+		require.Equal(t, "Bearer test-token", r.Header.Get("Authorization"), "Expected correct Authorization header")
+		require.Equal(t, "application/json", r.Header.Get("Content-Type"), "Expected correct Content-Type header")
+
+		b, err := io.ReadAll(r.Body)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		req := &ChatCompletionRequest{}
+		if err := json.Unmarshal(b, req); err != nil {
+			t.Fatal(err)
+		}
+
+		assert.Zero(t, req.MaxTokens)
+		assert.Zero(t, req.TopK)
+		assert.Zero(t, req.TopP)
+		assert.Zero(t, req.Temperature)
+
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_, err = w.Write([]byte(mockResponseJSON))
+		require.NoError(t, err)
+	}))
+	defer server.Close()
+
+	// Initialize the client to use the mock server
+	client := NewClient("test-account", "test-token")
+	client.BaseURL = server.URL
+
+	// Correctly initialize the messages slice with the concrete type 'ChatMessage'
+	messages := []Message{
+		ChatMessage{Role: "system", Content: "You are a helpful assistant"},
+		ChatMessage{Role: "user", Content: "Hello"},
+	}
+
+	_, gotErr := client.Chat("@cf/meta/llama-2-7b-chat-int8", messages, nil)
+	assert.Nil(t, gotErr)
 }
 
 func TestClient_GetModelInfo(t *testing.T) {
@@ -214,7 +341,7 @@ func TestClient_Chat_Integration(t *testing.T) {
 		ChatMessage{Role: "user", Content: "Say 'Hello World' and nothing else."},
 	}
 
-	response, err := client.Chat(ModelLlama4Scout17B, messages)
+	response, err := client.Chat(ModelLlama4Scout17B, messages, nil)
 	if err != nil {
 		t.Fatalf("Integration test failed: %v", err)
 	}
@@ -267,8 +394,6 @@ func TestChatWithTools_OpenAIResponse_ToolCall(t *testing.T) {
 		var reqBody ChatCompletionRequest
 		b, err := io.ReadAll(r.Body)
 		assert.Nil(t, err)
-
-		fmt.Println(string(b))
 
 		err = json.NewDecoder(bytes.NewBuffer(b)).Decode(&reqBody)
 		assert.NoError(t, err)
@@ -344,7 +469,7 @@ func TestChatWithTools_OpenAIResponse_ToolCall(t *testing.T) {
 	}
 
 	// 5. Call the method under test
-	response, err := client.ChatWithTools("test-model", messages, tools)
+	response, err := client.ChatWithTools("test-model", messages, tools, nil)
 
 	// 6. Assert the results
 	assert.NoError(t, err)
@@ -399,7 +524,7 @@ func TestChatWithTools_LegacyTextResponse(t *testing.T) {
 		ChatMessage{Role: "user", Content: "How do you say pineapple in Portuguese?"},
 	}
 
-	response, err := client.ChatWithTools("@cf/test-model", messages, nil)
+	response, err := client.ChatWithTools("@cf/test-model", messages, nil, nil)
 	assert.NoError(t, err)
 	assert.NotNil(t, response)
 	assert.True(t, response.Success)
@@ -425,7 +550,6 @@ func TestChatWithTools_LegacyToolCallResponse(t *testing.T) {
 			"errors": [],
 			"messages": [],
 			"result": {
-				"response": null,
 				"tool_calls": [
 					{
 						"name": "gablorken",
@@ -472,7 +596,7 @@ func TestChatWithTools_LegacyToolCallResponse(t *testing.T) {
 		},
 	}
 
-	response, err := client.ChatWithTools("@cf/test-model", messages, tools)
+	response, err := client.ChatWithTools("@cf/test-model", messages, tools, nil)
 	assert.NoError(t, err)
 	assert.NotNil(t, response)
 	assert.True(t, response.Success)
